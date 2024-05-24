@@ -4621,12 +4621,18 @@ pub const Interpreter = struct {
                 }
 
                 var path_buf: bun.PathBuffer = undefined;
-                const resolved = which(&path_buf, spawn_args.PATH, spawn_args.cwd, first_arg_real) orelse blk: {
-                    if (bun.strings.eqlComptime(first_arg_real, "bun") or bun.strings.eqlComptime(first_arg_real, "bun-debug")) blk2: {
-                        break :blk bun.selfExePath() catch break :blk2;
+                const resolved = blk: {
+                    const absolute_path = which(&path_buf, spawn_args.PATH, spawn_args.cwd, first_arg_real) orelse blk2: {
+                        if (bun.strings.eqlComptime(first_arg_real, "bun") or bun.strings.eqlComptime(first_arg_real, "bun-debug")) blk3: {
+                            break :blk2 bun.selfExePath() catch break :blk3;
+                        }
+                        this.writeFailingError("bun: command not found: {s}\n", .{first_arg});
+                        return;
+                    };
+                    if (bun.Environment.isWindows and !bun.strings.eqlComptime(std.fs.path.extension(absolute_path), ".exe")) {
+                        break :blk std.fs.path.basename(absolute_path);
                     }
-                    this.writeFailingError("bun: command not found: {s}\n", .{first_arg});
-                    return;
+                    break :blk absolute_path;
                 };
 
                 const duped = arena_allocator.dupeZ(u8, bun.span(resolved)) catch bun.outOfMemory();
