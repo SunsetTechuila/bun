@@ -819,8 +819,11 @@ pub const StandaloneModuleGraph = struct {
             if (windows_icon) |icon_utf8| {
                 var icon_buf: bun.OSPathBuffer = undefined;
                 const icon = bun.strings.toWPathNormalized(&icon_buf, icon_utf8);
-                bun.windows.rescle.setIcon(outfile_slice, icon) catch {
-                    Output.warn("Failed to set executable icon", .{});
+                bun.windows.rescle.setIcon(outfile_slice, icon) catch |err| switch (err) {
+                    error.ExecutableLoadFailed => Output.warn("Failed to set executable icon: cannot load executable file", .{}),
+                    error.IconSetFailed => Output.warn("Failed to set executable icon: cannot read or parse icon file", .{}),
+                    error.ExecutableCommitFailed => Output.warn("Failed to set executable icon: cannot commit changes to executable", .{}),
+                    else => Output.warn("Failed to set executable icon", .{}),
                 };
             }
             return;
